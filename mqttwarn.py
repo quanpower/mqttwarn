@@ -2,6 +2,7 @@
 # -*- coding: utf-8 -*-
 
 import paho.mqtt.client as paho   # pip install paho-mqtt
+import imp
 import logging
 import signal
 import sys
@@ -198,7 +199,7 @@ class Config(RawConfigParser):
         val = None
 
         try:
-            func = getattr(__import__(cf.functions, fromlist=[name]), name)
+            func = load_function(name)
             try:
                 val = func(topic, srv)  # new version
             except TypeError:
@@ -215,7 +216,7 @@ class Config(RawConfigParser):
         val = None
 
         try:
-            func = getattr(__import__(cf.functions, fromlist=[name]), name)
+            func = load_function(name)
             val = func(topic, data, srv)
         except:
             raise
@@ -233,7 +234,7 @@ class Config(RawConfigParser):
         val = None
 
         try:
-            func = getattr(__import__(cf.functions, fromlist=[name]), name)
+            func = load_function(name)
             val = func(topic=topic, data=data, srv=srv)
         except:
             raise
@@ -246,7 +247,7 @@ class Config(RawConfigParser):
 
         rc = False
         try:
-            func = getattr(__import__(cf.functions, fromlist=[name]), name)
+            func = load_function(name)
             rc = func(topic, payload)
         except:
             raise
@@ -542,7 +543,7 @@ class Job(object):
         return cmp(self.prio, other.prio)
 
 # MQTT broker callbacks
-def on_connect(mosq, userdata, result_code):
+def on_connect(mosq, userdata, flags, result_code):
     """
     Handle connections (or failures) to the broker.
     This is called after the client has received a CONNACK message
@@ -741,6 +742,7 @@ def builtin_transform_data(topic, payload):
     tdata['payload']    = payload
     tdata['_dtepoch']   = int(time.time())          # 1392628581
     tdata['_dtiso']     = datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%S.%fZ") # 2014-02-17T10:38:43.910691Z
+    tdata['_ltiso']     = datetime.now().isoformat() #local time in iso format
     tdata['_dthhmm']    = dt.strftime('%H:%M')      # 10:16
     tdata['_dthhmmss']  = dt.strftime('%H:%M:%S')   # hhmmss=10:16:21
 
@@ -1041,7 +1043,7 @@ def connect():
     if cf.has_section('cron'):
         for name, val in cf.items('cron'):
             try:
-                func = getattr(__import__(cf.functions, fromlist=[name]), name)
+                func = load_function(name)
                 cron_options = parse_cron_options(val)
                 interval = cron_options['interval']
                 logging.debug('Scheduling function "{name}" as periodic task ' \
@@ -1066,6 +1068,23 @@ def connect():
         if not exit_flag:
             logging.warning("MQTT server disconnected, trying to reconnect each %s seconds" % reconnect_interval)
             time.sleep(reconnect_interval)
+
+def load_function(function):
+    mod_inst = None
+
+    functions_path = cf.functions
+    mod_name,file_ext = os.path.splitext(os.path.split(functions_path)[-1])
+
+    if file_ext.lower() == '.py':
+        py_mod = imp.load_source(mod_name, functions_path)
+
+    elif file_ext.lower() == '.pyc':
+        py_mod = imp.load_compiled(mod_name, functions_path)
+
+    if hasattr(py_mod, function):
+        mod_inst = getattr(py_mod, function)
+
+    return mod_inst
 
 def cleanup(signum=None, frame=None):
     """

@@ -14,6 +14,7 @@ _mqttwarn_ supports a number of services (listed alphabetically below):
 * [apns](#apns)
 * [asterisk](#asterisk)
 * [carbon](#carbon)
+* [celery](#celery)
 * [dbus](#dbus)
 * [dnsupdate](#dnsupdate)
 * [emoncms](#emoncms)
@@ -22,6 +23,7 @@ _mqttwarn_ supports a number of services (listed alphabetically below):
 * [freeswitch](#freeswitch)
 * [gss](#gss)
 * [gss2](#gss2)
+* [hipchat](#hipchat)
 * [http](#http)
 * [icinga2](#icinga2)
 * [ifttt](#ifttt)
@@ -484,6 +486,32 @@ room.living 15				metric name and value
 room.living 15 1405014635		metric name, value, and timestamp
 ```
 
+### `celery`
+
+The `celery` service sends messages to celery which celery workers can consume.
+
+```ini
+[config:celery]
+broker_url = 'redis://localhost:6379/5'
+app_name = 'celery'
+celery_serializer = 'json'
+targets = {
+   'hello': [
+      {
+        'task': 'myapp.hello',
+        'message_format': 'json'
+        }
+      ],
+  }
+
+[hello/#]
+targets = celery:hello
+```
+Broker URL can be any broker supported by celery. Celery serializer is usually json or pickle. Json is recommended for security.
+Targets are selected by task name. Message_format can be either "json" or "text". If it is json, the message will be sent as a json payload rather than a string.
+In this configuration, all messages that match hello/ will be sent to the celery task "myapp.hello". The first argument of the celery task will be the message from mqtt.
+
+
 ### `dbus`
 
 The `dbus` service send a message over the dbus to the user's desktop (only
@@ -617,13 +645,13 @@ targets = {
 To pass the published data (text) to the command, use `[TEXT]` which then gets replaced.
 This can also be configured with the `text_replace` parameter.
 
-Note, that for each message targetted to the `execute` service, a new process is
+Note, that for each message targeted to the `execute` service, a new process is
 spawned (fork/exec), so it is quite "expensive".
 
 ### `fbchat`
 
 Notification of one [Facebook](http://facebook.com) account requires an account.
-For now, this is only done for messaging from one accout to another.
+For now, this is only done for messaging from one account to another.
 
 Upon configuring this service's targets, make sure the three (3) elements of the
 list are in the order specified!
@@ -715,7 +743,7 @@ The `gss` service interacts directly with a Google Docs Spreadsheet. Each messag
 
 Each target has two parameters:
 
-1. The spreadsheet key. This is directly obtainable from the url of the open sheet.
+1. The spreadsheet key. This is directly obtainable from the URL of the open sheet.
 2. The worksheet id. By default the first sheets id is 'od6'
 
 ```ini
@@ -781,7 +809,7 @@ Here is an overview how the authentication with Google works:
 
 1. You obtain a `client_secrets.json` file from Google Developers Console.
 1. You reference that file in the `client_secrets_filename` field and restart mqttwarn.
-1. You grab an URL from the logs and visit that in your webbrowser.
+1. You grab an URL from the logs and visit that in your web browser.
 1. You copy the resulting code to `mqttwarn.ini`, field `oauth2_code`
    and restart mqttwarn.
 1. `gss2` stores the eventual credentials in the file you specified in
@@ -820,6 +848,29 @@ Requires:
   (`pip install gspread`)
 
 
+### `hipchat`
+
+The `hipchat` plugin posts messages to rooms of the hipchat.com service or self-hosted edition. The configuration of this service requires an API v2 token and RoomID (you can configure them on hipchat.com => Group Admin => Rooms => Tokens) only the Send Notification scope is required.
+
+
+```ini
+[config:hipchat]
+
+#server = "hipchat.example.com"  # Optional, default is api.hipchat.com
+timeout = 10 # Default 60 seconds
+
+targets = {
+                     #token         #roomid  #color #notify
+  'room-ops'    : [ "yyyyyyyyyyyyy", "000", "red", True ],
+  'room-dev'    : [ "xxxxxxxxxxxxx", "111", "green", False ]
+  }
+```
+
+The available colors for the background of the message are: "yellow", "green", "red", "purple", "gray" or if you feel lucky "random"
+
+The notify parameter (True or False) trigger a user notification (change the tab color, play a sound, notify mobile phones, etc). 
+
+![Hipchat](assets/hipchat.png)
 
 ### `http`
 
@@ -928,7 +979,7 @@ This service is for [Ionic](http://ionicframework.com/). Ionic framework allows 
 
 You will get Ionic appid and Ionic appsecret (private key) after registering with Ionic push service. And you will get device token(s) when app initiates push service interaction.
 
-Using this service, *plain texts* can be sent to one or many ionic apps. And each app can inturn push to many devices. Following is the ini example:
+Using this service, *plain texts* can be sent to one or many ionic apps. And each app can in turn push to many devices. Following is the ini example:
 
 ```ini
 [config:ionic]
@@ -959,7 +1010,7 @@ targets = {
 ```
 
 Note that the actual message delivery is done asynchronously, meaning that
-successful processing is no quarantee for actual delivery. In the case of an
+successful processing is no guarantee for actual delivery. In the case of an
 error occurring, an error message should eventually appear in the log.
 
 Requires:
@@ -1030,7 +1081,7 @@ targets = {
 
 ![instapush](assets/instapush.png)
 
-To send tracker values based on the message payload, leave out the the tracker element of the target definition in the `config:instapush` section: If your target is a list with only 1 element, that element will be considered the "event" and the "trackers" will be taken from the mqtt payload, which must have all tracker fields present.
+To send tracker values based on the message payload, leave out the tracker element of the target definition in the `config:instapush` section: If your target is a list with only 1 element, that element will be considered the "event" and the "trackers" will be taken from the mqtt payload, which must have all tracker fields present.
 
 ### `irccat`
 
@@ -1228,7 +1279,7 @@ This will result in the two columns `id` and `name` being populated:
 ```
 
 The target contains a so-called _fallback column_ into which _mqttwarn_ adds
-the "rest of" the payload for all columns not targetted with JSON data. I'll now
+the "rest of" the payload for all columns not targeted with JSON data. I'll now
 add our fallback column to the schema:
 
 ```mysql
@@ -1322,7 +1373,7 @@ At this point, if the payload format changes, the tables are not modified and da
 
 ### `mythtv`
 
-This service allows for on-screen notification popups on [MythTV](http://www.mythtv.org/) instances. Each target requires
+This service allows for on-screen notification pop-ups on [MythTV](http://www.mythtv.org/) instances. Each target requires
 the address and port of the MythTV backend instance (&lt;hostname&gt;:&lt;port&gt;), and a broadcast address.
 
 ```ini
@@ -1338,7 +1389,7 @@ targets = {
 | Topic option  |  M/O   | Description                           |
 | ------------- | :----: | --------------------------------------|
 | `title`       |   O    | notification title (dflt: `mqttwarn`) |
-| `image`       |   O    | notification image url                |
+| `image`       |   O    | notification image URL                |
 
 
 ### `nma`
@@ -1490,11 +1541,13 @@ Requires:
 
 ### `osxnotify`
 
-* Requires Mac ;-) and [pync](https://github.com/setem/pync) which uses the binary [terminal-notifier](https://github.com/alloy/terminal-notifier) created by Eloy Durán. Note: upon first launch, `pync` will download and extract `https://github.com/downloads/alloy/terminal-notifier/terminal-notifier_1.4.2.zip` into a directory `vendor/`.
+* Requires Mac ;-) and [pync](https://github.com/setem/pync) which uses the binary [terminal-notifier](https://github.com/alloy/terminal-notifier) created by Eloy Durán. Note: upon first launch, `pync` will download and extract `https://github.com/downloads/alloy/terminal-notifier/terminal-notifier_1.6.1.zip` into a directory `vendor/`.
 
-| Topic option  |  M/O   | Description                            |
-| ------------- | :----: | -------------------------------------- |
-| `title`       |   O    | application title (dflt: topic name)   |
+| Topic option  |  M/O   | Description                                     |
+| ------------- | :----: | ----------------------------------------------- |
+| `title`       |   O    | application title (dflt: topic name)            |
+
+If `url` is defined in `items.data`, its value is passed to the notification, so that the URL is opened in the system's default Web browser when the notification is clicked. (The notification itself has no visual indication that such is possible.)
 
 ![osxnotify](assets/osxnotify.jpg)
 
@@ -1547,7 +1600,7 @@ targets = {
     }
 ```
 
-![osxnotify](assets/pastebin.png)
+![pastebin](assets/pastebin.png)
 
 Requires:
 * An account at [Pastebin](http://pastebin.com)
@@ -1559,7 +1612,7 @@ Requires:
 
 The `pipe` target launches the specified program and its arguments and pipes the
 (possibly formatted) message to the program's _stdin_. If the message doesn't have
-a training newline (`\n`), _mqttwarn_ appends one.
+a trailing newline (`\n`), _mqttwarn_ appends one.
 
 ```ini
 [config:pipe]
@@ -1569,7 +1622,7 @@ targets = {
    }
 ```
 
-Note, that for each message targetted to the `pipe` service, a new process is
+Note, that for each message targeted to the `pipe` service, a new process is
 spawned (fork/exec), so it is quite "expensive".
 
 ### `postgres`
@@ -1612,7 +1665,7 @@ This will result in the two columns `id` and `name` being populated:
 ```
 
 Exactly as in the `MySQL` plugin, a _fallback column_ can be defined into which _mqttwarn_ adds
-the "rest of" the payload for all columns not targetted with JSON data. Lets now
+the "rest of" the payload for all columns not targeted with JSON data. Lets now
 add our fallback column to the schema:
 
 ```postgres
@@ -1820,7 +1873,20 @@ targets = {
     }
 ```
 
-[rrdpython's API](http://oss.oetiker.ch/rrdtool/prog/rrdpython.en.html) expects strings and/or list of strings as parameters to the functions. Thus a list for a target simply contains the command line arguments for `rrdtool update`. The plugin will embed the message as final argument `N:<message>`.
+[rrdpython's API](http://oss.oetiker.ch/rrdtool/prog/rrdpython.en.html) expects strings and/or list of strings as parameters to the functions. Thus a list for a target simply contains the command line arguments for `rrdtool update`. The plugin will embed the message as final argument `N:<message>`, if the message is an integer number. Otherwise, it will break up the message into single words and append this list to the list supplied by the target. This leaves it to your descretion _where_ to put arguments and even - with the right data mapping and extraction in place - allows for something like
+
+```ini
+[config:rrdtool]
+targets = {
+        'battsensor': [ ],
+        }
+...
+[datalog-battery-log]
+topic = datalog/sensors/batt/+
+targets = log:info,rrdtool:battsensor
+datamap = ...
+format = /srv/rrd/sensors/{sensor_id}.rrd -t batt {ts}:{batt}
+```
 
 Requires the rrdtool bindings available with `pip install rrdtool`.
 
@@ -2040,7 +2106,11 @@ This is to send messages as a Bot to a [Telegram](https://telegram.org) chat. Fi
 
 Optionally you can specify `parse_mode` which will be used during message sending. Please, check [docs](https://core.telegram.org/bots/api#formatting-options) for additional information.
 
-Configure the `telegram` service:
+If you have the `chatId` you can specify the telegram service to use the chatId directly. Warning, this will need to be the case for all the targets in this notifier!
+
+Quickest way to get the `chatid` is by visiting this URL (insert your api key): https://api.telegram.org/botYOUR_API_TOKEN/getUpdates and getting the id from the "from" section.
+
+Configure the `telegram` service WITHOUT chatId:
 
 ```ini
 [config:telegram]
@@ -2048,14 +2118,28 @@ timeout = 60
 parse_mode = 'Markdown'
 token = 'mmmmmmmmm:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA'
 targets = {
-   #        First Name or @username
+   #        First Name or @username or #chat_id
    'j01' : [ 'First Name' ],
-   'j02' : [ '@username' ]
+   'j02' : [ '@username' ],
+   'j03' : [ '#chat_id' ]
 }
 ```
+Configure the `telegram` service WITH chatid:
+```ini
+[config:telegram]
+timeout = 60
+parse_mode = 'Markdown'
+token = 'mmmmmmmmm:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA'
+use_chat_id = True
+targets = {
+    #       chatId (in quotes)
+    'j01' : ['123456789']
+}
+```
+
 Possible issue:
 
-* Current implementation uses [getUpdates](https://core.telegram.org/bots/api#getupdates) call to get `chat_id` but this call returns only last 100 messages; if _you_ haven't spoken to your Bot recently it may well be possible we can't find the _chat-id_ associated with _you_.
+* If First name or @username was specified as target, plugin will call [getUpdates](https://core.telegram.org/bots/api#getupdates) to get `chat_id` but this call returns only last 100 messages; if _you_ haven't spoken to your Bot recently it may well be possible we can't find the _chat-id_ associated with _you_. If chat_id is known, it can be set as target using `#` sign.
 
 ![Telegram](assets/telegram.png)
 
@@ -2072,7 +2156,7 @@ targets = {
     'composite': [ 'XXYYZZXXYYZZXXYY', [ 'temp', 'hum' ] ]
   }
 ```
-Using `builddata=true` you can build an update with multiple fields in one update. Using this function no direct update. Only with the next update without builddata=true all entries are send (e.g. when multiple sensors are updating diferent topics, then you can do the build the data and submit when the last sensor is sending the data).
+Using `builddata=true` you can build an update with multiple fields in one update. Using this function no direct update is performed. Only with the next update without builddata=true all entries are sent (e.g. when multiple sensors are updating different topics, then you can do the build the data and submit when the last sensor is sending the data).
 
 Supply an ordered list of message data field names to extract several values from a single message (e.g. `{ "temp": 10, "hum": 77 }`). Values will be assigned to field1, field2, etc in order.
 
@@ -2156,7 +2240,7 @@ Requires:
 
 ### `xbmc`
 
-This service allows for on-screen notification popups on [XBMC](http://xbmc.org/) instances. Each target requires
+This service allows for on-screen notification pop-ups on [XBMC](http://xbmc.org/) instances. Each target requires
 the address and port of the XBMC instance (<hostname>:<port>), and an optional username and password if authentication is required.
 
 ```ini
@@ -2171,7 +2255,7 @@ targets = {
 | Topic option  |  M/O   | Description                            |
 | ------------- | :----: | -------------------------------------- |
 | `title`       |   O    | notification title                     |
-| `image`       |   O    | notification image url  ([example](https://github.com/jpmens/mqttwarn/issues/53#issuecomment-39691429))|
+| `image`       |   O    | notification image URL  ([example](https://github.com/jpmens/mqttwarn/issues/53#issuecomment-39691429))|
 
 ### `xmpp`
 
@@ -2383,7 +2467,7 @@ def p01Format(data, srv):
     return s
 ```
 
-Be advised that if you MQTT publish back to the same topic which triggerred the invocation
+Be advised that if you MQTT publish back to the same topic which triggered the invocation
 of your function, you'll create an endless loop.
 
 ### Incorporating topic names into transformation data
@@ -2486,7 +2570,7 @@ for a more sensible example.
 
 ### Filtering notifications ###
 
-A notification can be filtered (or supressed) using a custom function.
+A notification can be filtered (or suppressed) using a custom function.
 
 An optional `filter` in our configuration file, defines the name of a function we provide, also in the configuration file, which accomplishes that.
 
